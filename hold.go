@@ -123,14 +123,11 @@ func (h *HoldDir) Load(name string, expiry time.Time, fill func() ([]byte, error
 		return nil, "", errors.New("invalid cache name")
 	}
 	hot, _, err := h.Files(name, expiry)
-	if err != nil {
-		return nil, "", err
-	}
 
 	var out []byte
 	var path string
 	// load cached file if possible otherwise populate new file
-	if len(hot) > 0 {
+	if err == nil && len(hot) > 0 {
 		var err error
 		out, path, err = h.Retrieve(name, expiry)
 		if err != nil {
@@ -156,7 +153,14 @@ type Cat struct {
 func (c *Cat) Output() ([]byte, error) {
 	var out []byte
 	for i := 0; i < len(c.files); i++ {
-		content, err := ioutil.ReadFile(c.files[i])
+		file := c.files[i]
+		var content []byte
+		var err error
+		if file == "-" {
+			content, err = ioutil.ReadAll(os.Stdin)
+		} else {
+			content, err = ioutil.ReadFile(c.files[i])
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -220,13 +224,16 @@ func GetHoldArgs() (*HoldArgs, error) {
 			return nil, errors.New("expected one or more files")
 		}
 	}
+	// positional arguments are command with arguments or a list of files
 	pargs := flag.Args()
 	files := pargs
-	command := pargs[0]
+	var command string
 	var commandArgs []string
 	if len(pargs) == 1 {
+		command = pargs[0]
 		commandArgs = nil
-	} else {
+	} else if len(pargs) > 1 {
+		command = pargs[0]
 		commandArgs = pargs[1:]
 	}
 	// require the cache name
@@ -282,7 +289,13 @@ func main() {
 	}
 	// report any errors
 	if err != nil {
-		fmt.Printf("%s\n", err)
+		switch args.output {
+		case 0:
+			fmt.Printf("%s\n", err)
+		case 1:
+			fmt.Printf("%s\n", err)
+		case 2:
+		}
 		os.Exit(1)
 	}
 	// write desired output
