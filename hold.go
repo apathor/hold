@@ -220,9 +220,15 @@ func GetHoldArgs() (*HoldArgs, error) {
 			return nil, errors.New("expected one or more files")
 		}
 	}
-	files := flag.Args()
-	command := flag.Arg(0)
-	commandArgs := flag.Args()[1:]
+	pargs := flag.Args()
+	files := pargs
+	command := pargs[0]
+	var commandArgs []string
+	if len(pargs) == 1 {
+		commandArgs = nil
+	} else {
+		commandArgs = pargs[1:]
+	}
 	// require the cache name
 	if *name == "" {
 		*name = command
