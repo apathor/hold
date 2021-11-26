@@ -5,7 +5,7 @@ Speed up pipelines with caching!
 hold [OPTIONS] [MODE] [ARGUMENTS]
 
 ## MODE
- -e          : Arguments are considered a command to be evaludated and the output is cached
+ -e          : Arguments are considered a command to be evaluated and the output is cached
  
  -f          : Arguments are considered files and their content is cached
  
@@ -28,31 +28,30 @@ HOLD_DIR   : Directory in which to store cache files. The default is ~/.cache/ho
 
 ## EXAMPLES
 
-Cache a long running command.
+Cache the output of a command for one minute.
 
-`$ hold -e -n foo -t 1m -- long running command`
+`$ hold -e -p -n foo -t 1m -- date`
 
-Cache a long running pipeline.
+Cache the output of a pipeline for thirty seconds.
 
-`$ hold -q -g -n bar -t 30s || hold -f -x -n bar <(long running command)`
+`$ hold -g -p -n bar -t 30s || hold -f -p -x -n bar < <(sleep 10; date)`
 
-Get a cached file by name.
+Get a cache file by name.
 
-`$ f=$(hold -g -t 300s -n foo); cat "$f"`
+`$ f=$(hold -g -n baz); cat "$f"`
 
-Retreive cached file contents.
+Retreive cache file contents newer than three-hundred seconds.
 
-`$ hold -g -t 300s -p -n foo`
+`$ hold -g -t 300s -p -n qux`
 
 Overwrite a cache.
 
-`$ hold -f -x -n bar - <<< "test"`
+`$ hold -f -x -n cor - <<< "test"`
 
-Accept a file argument or stdin in one command.
+Handle a file argument that reads stdin by default.
 
-`$ i=$(hold -f -x -n qux "${1:--}")`
-
+`$ cfile() { f=$(hold -f -x -n cfile "${1:--}"); printf "%s\n" "$f"; };`
 
 ## INSTALL
 
-`go get github.com/apathor/hold`
+`go install github.com/apathor/hold@latest`

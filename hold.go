@@ -63,7 +63,7 @@ func (h *HoldDir) Files(name string, expiry time.Time) ([]string, []string, erro
 		return nil, nil, err
 	}
 	if len(found) == 0 {
-		return nil, nil, errors.New("No cached files.")
+		return nil, nil, errors.New("no cached files.")
 	}
 	sort.Slice(found, func(x, y int) bool { return found[x] > found[y] })
 	// divide files by expiration
@@ -182,19 +182,19 @@ type HoldArgs struct {
 
 func GetHoldArgs() (*HoldArgs, error) {
 	// accept options
-	mode := 0
 	modeCommand := flag.Bool("e", false, "arguments are evaluated as a command and the output is cached")
 	modeFiles := flag.Bool("f", false, "arguments are considered files and their content is cached")
 	modeRetrieve := flag.Bool("g", false, "ignore arguments and only retreive cached content")
-	output := 0
 	outContent := flag.Bool("p", false, "print the content of the cached file instead of its name")
-	outQuiet := flag.Bool("q", false, "be quiet - do not print cache file name or contents")
+	outQuiet := flag.Bool("q", false, "be quiet - do not print errors")
+	outSilent := flag.Bool("s", false, "be silent - do not print errors or anything else")
 	dir := flag.String("d", os.Getenv("HOLD_DIR"), "path of hold directory")
 	name := flag.String("n", "", "name of cache")
 	keep := flag.Duration("t", 0, "expire older than seconds")
 	nocache := flag.Bool("x", false, "do not load cached version")
 	flag.Parse()
 	// program mode has a priority order
+	mode := 0
 	if *modeCommand {
 		mode = 0
 	}
@@ -205,11 +205,15 @@ func GetHoldArgs() (*HoldArgs, error) {
 		mode = 2
 	}
 	// output mode has a priority order
+	output := 0
 	if *outContent {
 		output = 1
 	}
 	if *outQuiet {
 		output = 2
+	}
+	if *outSilent {
+		output = 3
 	}
 	// a sensible cache directory is used if not specified
 	if *dir == "" {
@@ -224,7 +228,7 @@ func GetHoldArgs() (*HoldArgs, error) {
 			return nil, errors.New("expected one or more files")
 		}
 	}
-	// positional arguments are command with arguments or a list of files
+	// positional arguments are a command with arguments or a list of files
 	pargs := flag.Args()
 	files := pargs
 	var command string
@@ -271,39 +275,36 @@ func main() {
 	// setup cache directory
 	hold, err := NewHoldDir(args.directory)
 	if err != nil {
-		fmt.Printf("%s\n", err)
+		if args.output < 2 {
+			fmt.Printf("%s\n", err)
+		}
 		os.Exit(1)
 	}
 	// do it!
-	var out []byte
+	var content []byte
 	var path string
 	switch args.mode {
 	case 0: // cache command output
 		cmd := exec.Command(args.command, args.cmdArgs...)
-		out, path, err = hold.Load(args.name, args.expiration, cmd.Output)
+		content, path, err = hold.Load(args.name, args.expiration, cmd.Output)
 	case 1: // cache file contents
 		cat := Cat{files: args.files}
-		out, path, err = hold.Load(args.name, args.expiration, cat.Output)
+		content, path, err = hold.Load(args.name, args.expiration, cat.Output)
 	case 2: // retreive only
-		out, path, err = hold.Retrieve(args.name, args.expiration)
+		content, path, err = hold.Retrieve(args.name, args.expiration)
 	}
 	// report any errors
 	if err != nil {
-		switch args.output {
-		case 0:
+		if args.output < 2 {
 			fmt.Printf("%s\n", err)
-		case 1:
-			fmt.Printf("%s\n", err)
-		case 2:
 		}
 		os.Exit(1)
 	}
-	// write desired output
+	// write desired output either path or file contents
 	switch args.output {
 	case 0:
 		fmt.Printf("%s\n", path)
 	case 1:
-		fmt.Printf("%s\n", out)
-	case 2:
+		fmt.Printf("%s\n", content)
 	}
 }
