@@ -55,9 +55,15 @@ func TestBasicUse(t *testing.T) {
                                                     --Shak.
         [1913 Webster]`)
 
+	input2 := []byte(`
+ __           __     __
+|  |--.-----.|  |.--|  |
+|     |  _  ||  ||  _  |
+|__|__|_____||__||_____|`)
+
 	delay := 1 * time.Second
 
-	out1, path1, err1 := hold.Stash("t1", []byte(input1))
+	out1, path1, err1 := hold.Stash("t1", input1)
 	assert.NoError(t, err1, "stash some data")
 	assert.Equal(t, out1, input1, "stashed bytes match those returned")
 	assert.FileExists(t, path1, "cache file exists")
@@ -76,6 +82,16 @@ func TestBasicUse(t *testing.T) {
 	assert.Error(t, err4, "cannot retreive unknown cache")
 	assert.Nil(t, out4, "output not returned on failed retreive")
 	assert.Equal(t, "", path4, "path not returned on failed retreive")
+
+	out5, path5, err5 := hold.Stash("t1", input2)
+	assert.NoError(t, err5, "stash some data")
+	assert.Equal(t, out5, input2, "stashed bytes match those returned")
+	assert.FileExists(t, path5, "cache file exists")
+
+	out6, path6, err6 := hold.Retrieve("t1", time.Time{})
+	assert.NoError(t, err6, "retreive most recent cached file")
+	assert.Equal(t, out6, input2, "retreived bytes match input1")
+	assert.FileExists(t, path6, "cache file still exists")
 
 	caches, err := hold.Caches()
 	assert.NoError(t, err2, "caches can be listed")

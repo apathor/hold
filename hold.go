@@ -63,25 +63,31 @@ func (h *HoldDir) Files(name string, expiry time.Time) ([]string, []string, erro
 		return nil, nil, err
 	}
 	if len(found) == 0 {
-		return nil, nil, errors.New("no cached files.")
+		return nil, nil, errors.New("no cached files")
 	}
 	sort.Slice(found, func(x, y int) bool { return found[x] > found[y] })
 	// divide files by expiration
 	var hot []string
 	var cold []string
-	for i := 0; i < len(found); i++ {
-		// determine filename encoded time
-		base := filepath.Base(found[i])
-		toks := strings.Split(base, ".")
-		ts, err := strconv.Atoi(toks[1])
-		if err != nil {
-			return nil, nil, err
-		}
-		htime := time.Unix(int64(ts), 0)
-		if expiry.Before(htime) {
-			hot = append(hot, found[i])
-		} else {
-			cold = append(cold, found[i])
+
+	if expiry.IsZero() {
+		hot = found[0:1]
+		cold = found[1:]
+	} else {
+		for i := 0; i < len(found); i++ {
+			// determine filename encoded time
+			base := filepath.Base(found[i])
+			toks := strings.Split(base, ".")
+			ts, err := strconv.Atoi(toks[1])
+			if err != nil {
+				return nil, nil, err
+			}
+			htime := time.Unix(int64(ts), 0)
+			if expiry.Before(htime) {
+				hot = append(hot, found[i])
+			} else {
+				cold = append(cold, found[i])
+			}
 		}
 	}
 	return hot, cold, nil
@@ -102,7 +108,7 @@ func (h *HoldDir) Stash(name string, input []byte) ([]byte, string, error) {
 }
 
 func (h *HoldDir) Retrieve(name string, expiry time.Time) ([]byte, string, error) {
-	hot, _, err := h.Files(name, expiry)
+	hot, cold, err := h.Files(name, expiry)
 	if err != nil {
 		return nil, "", err
 	}
@@ -114,6 +120,9 @@ func (h *HoldDir) Retrieve(name string, expiry time.Time) ([]byte, string, error
 	if err != nil {
 		return nil, "", err
 	}
+	for _, old := range cold {
+		os.Remove(old)
+	}
 	return content, path, nil
 }
 
@@ -123,7 +132,6 @@ func (h *HoldDir) Load(name string, expiry time.Time, fill func() ([]byte, error
 		return nil, "", errors.New("invalid cache name")
 	}
 	hot, _, err := h.Files(name, expiry)
-
 	var out []byte
 	var path string
 	// load cached file if possible otherwise populate new file
@@ -228,7 +236,7 @@ func GetHoldArgs() (*HoldArgs, error) {
 			return nil, errors.New("expected one or more files")
 		}
 	}
-	// positional arguments are a command with arguments or a list of files
+	// positional arguments are either a command with arguments or a list of files
 	pargs := flag.Args()
 	files := pargs
 	var command string
@@ -248,6 +256,8 @@ func GetHoldArgs() (*HoldArgs, error) {
 	var expiration time.Time
 	if *nocache {
 		expiration = time.Now()
+	} else if keep.Seconds() == 0 {
+		expiration = time.Time{}
 	} else {
 		expiration = time.Now().Add(-*keep)
 	}
